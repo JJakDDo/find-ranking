@@ -1,139 +1,214 @@
 require("dotenv").config();
+
+const Following = require("./models/following");
+
+const mongoose = require("mongoose");
 const { Builder, By, Key, until } = require("selenium-webdriver");
 const chrome = require("selenium-webdriver/chrome");
 
-const KEYWORDS = "돈마호크";
-const STORE = "프레시웰";
-const SCROLL_PAUSE_TIME = 1000;
+// const KEYWORDS = "돈마호크";
+// const STORE = "위메프";
+const SCROLL_PAUSE_TIME = 500;
 
-let nextPage = 2;
+const MONGODB_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017";
+
 function sleep(ms) {
   const wakeUpTime = Date.now() + ms;
   while (Date.now() < wakeUpTime) {}
 }
 
-async function main() {
+async function getFollowings() {
+  const followings = await Following.find({});
+  return followings.map((following) => ({
+    keyword: following.keyword,
+    store: following.store,
+  }));
+}
+
+async function main(followings) {
+  let results = [];
+  let nextPage = 2;
   let driver = await new Builder()
     .forBrowser("chrome")
     // size가 모바일 사이즈이면 안됨
     .setChromeOptions(
       new chrome.Options()
-      // .headless()
-      // .windowSize({
-      //   width: 1920,
-      //   height: 1080,
-      // })
-      // .addArguments("--no-sandbox")
-      // .addArguments("--single-process")
-      // .addArguments("--disable-dev-shm-usage")
+        .headless()
+        .windowSize({
+          width: 1920,
+          height: 1080,
+        })
+        .addArguments("--no-sandbox")
+        .addArguments("--single-process")
+        .addArguments("--disable-dev-shm-usage")
     )
     .build();
   try {
     await driver.get("https://shopping.naver.com/home");
 
-    let idInput = await driver.findElement(
-      By.xpath(
-        "/html/body/div[3]/div/div[1]/div/div/div[2]/div/div[2]/div/div[2]/form/div[1]/div[1]/input"
-      )
-    );
-    idInput.sendKeys(KEYWORDS, Key.RETURN);
-
-    let rank = 1;
-    while (true) {
-      await driver.wait(
-        until.elementLocated(By.className("list_basis")),
-        10000
+    for (const following of followings) {
+      const { keyword: KEYWORD, store: STORE } = following;
+      let idInput = await driver.findElement(
+        By.className("_searchInput_search_text_3CUDs")
       );
+      idInput.sendKeys(KEYWORD, Key.RETURN);
 
-      // await driver.executeScript(
-      //   "window.scrollTo(0, document.body.scrollHeight);"
-      // );
-      let last_height = await driver.executeScript(
-        "return document.body.scrollHeight"
-      );
+      let rank = 1;
       while (true) {
-        await driver.executeScript(
-          "window.scrollTo(0, document.body.scrollHeight);"
-        );
-
-        sleep(SCROLL_PAUSE_TIME);
-        await driver.executeScript(
-          "window.scrollTo(0, document.body.scrollHeight-50);"
-        );
-        sleep(SCROLL_PAUSE_TIME);
-
-        const new_height = await driver.executeScript(
-          "return document.body.scrollHeight"
-        );
-
-        if (new_height == last_height) break;
-
-        last_height = new_height;
-      }
-
-      // let reservationNum = await driver.findElements(
-      //   By.className("reservation_num")
-      // );
-      let listElems = await driver.findElements(
-        By.className("basicList_item__0T9JD")
-      );
-      let mallNames = await driver.findElements(
-        By.className("basicList_mall__BC5Xu")
-      );
-
-      let hit = false;
-      let rankInPage = 1;
-      let i = 0;
-      for (const mallName of mallNames) {
-        const classNames = await listElems[i++].getAttribute("class");
-        if (classNames.includes("ad")) continue;
-        const store = await mallName.getText();
-        if (store === STORE) {
-          hit = true;
-          console.log("KEYWORD: ", KEYWORDS);
+        if (nextPage >= 26) {
+          console.log("KEYWORD: ", KEYWORD);
           console.log("STORE: ", STORE);
-          console.log(`위치: ${nextPage - 1}페이지 ${rankInPage}`);
-          console.log(`순위: ${rank}`);
+          console.log(`위치: Not Found`);
+          console.log(`순위: Unrank`);
           break;
         }
-        rank++;
-        rankInPage++;
-      }
+        await driver.wait(
+          until.elementLocated(By.className("list_basis")),
+          10000
+        );
 
-      if (hit) {
-        break;
-      }
+        // await driver.executeScript(
+        //   "window.scrollTo(0, document.body.scrollHeight);"
+        // );
+        let last_height = await driver.executeScript(
+          "return document.body.scrollHeight"
+        );
+        while (true) {
+          await driver.executeScript(
+            "window.scrollTo(0, document.body.scrollHeight);"
+          );
 
-      const paginationNums = await driver.findElements(
-        By.className("pagination_btn_page___ry_S")
-      );
+          sleep(SCROLL_PAUSE_TIME);
+          await driver.executeScript(
+            "window.scrollTo(0, document.body.scrollHeight-50);"
+          );
+          sleep(SCROLL_PAUSE_TIME);
 
-      for (const paginationNum of paginationNums) {
-        const text = await paginationNum.getText();
-        if (text == nextPage) {
-          nextPage++;
-          await paginationNum.click();
+          const new_height = await driver.executeScript(
+            "return document.body.scrollHeight"
+          );
+
+          if (new_height == last_height) break;
+
+          last_height = new_height;
+        }
+
+        // let reservationNum = await driver.findElements(
+        //   By.className("reservation_num")
+        // );
+        let productElems = await driver.findElements(
+          By.className("basicList_item__0T9JD")
+        );
+        // let listElems = await driver.findElements(
+        //   By.className("basicList_item__0T9JD")
+        // );
+        // let mallNames = await driver.findElements(
+        //   By.className("basicList_mall__BC5Xu")
+        // );
+
+        let hit = false;
+        let rankInPage = 1;
+        let i = 0;
+        for (const product of productElems) {
+          const classNames = await product.getAttribute("class");
+          if (classNames.includes("ad")) continue;
+
+          const storeElemExist = await product.findElements(
+            By.className("basicList_mall__BC5Xu")
+          );
+
+          if (storeElemExist.length) {
+            let store = await storeElemExist[0].getText();
+            if (store === STORE) {
+              hit = true;
+              const name = await product
+                .findElement(By.className("basicList_link__JLQJf"))
+                .getText();
+              // const thumbnail = await product.findElement(
+              //   By.className("thumbnail_thumb__Bxb6Z")
+              // );
+              // const img = await thumbnail.findElements(By.xpath("./child::img"));
+              // console.log(img);
+              // const imgUrl = await img[0].getAttribute("src");
+
+              console.log("KEYWORD: ", KEYWORD);
+              console.log("STORE: ", STORE);
+              console.log(`위치: ${nextPage - 1}페이지 ${rankInPage}`);
+              console.log(`순위: ${rank}`);
+              console.log(name);
+              break;
+            }
+          } else {
+            const storeNamesExist = await product.findElements(
+              By.className("basicList_mall_name__XQlSa")
+            );
+            if (storeNamesExist.length) {
+              for (const storeName of storeNamesExist) {
+                let store = await storeName.getText();
+                if (store === STORE) {
+                  hit = true;
+                  const name = await product
+                    .findElement(By.className("basicList_link__JLQJf"))
+                    .getText();
+                  // const thumbnail = await product.findElement(
+                  //   By.className("thumbnail_thumb__Bxb6Z")
+                  // );
+                  // const img = await thumbnail.findElements(By.xpath("./child::img"));
+                  // console.log(img);
+                  // const imgUrl = await img[0].getAttribute("src");
+
+                  console.log("KEYWORD: ", KEYWORDS);
+                  console.log("STORE: ", STORE);
+                  console.log(
+                    `위치: ${nextPage - 1}페이지 ${rankInPage} (묶음)`
+                  );
+                  console.log(`순위: ${rank}`);
+                  console.log(name);
+                  break;
+                }
+              }
+
+              if (hit) {
+                break;
+              }
+            }
+          }
+
+          rank++;
+          rankInPage++;
+        }
+
+        if (hit) {
           break;
+        }
+
+        const paginationNums = await driver.findElements(
+          By.className("pagination_btn_page___ry_S")
+        );
+
+        for (const paginationNum of paginationNums) {
+          const text = await paginationNum.getText();
+          if (text == nextPage) {
+            nextPage++;
+            await paginationNum.click();
+            break;
+          }
         }
       }
     }
-    // const data = fs.readFileSync("prevReserved.json");
-    // const prevReserved = JSON.parse(data.toString());
-    // let reserved = [];
-    // let reservedSmsNotSent = [];
-    // for (let i = 0; i < reservationNum.length; i++) {
-    //   reserved.push({
-    //     reservationNum: (await reservationNum[i].getText()).replace(/\D/gi, ""),
-    //     phoneNum: (await phoneNum[i].getText()).replace(/\D/gi, ""),
-    //   });
-    //   if (!prevReserved.includes(reserved[i].reservationNum)) {
-    //     reservedSmsNotSent.push(reserved[i].phoneNum);
-    //   }
-    // }
-    //*[@id="content"]/div[1]/div[3]/div/a[1]
   } finally {
     driver.quit();
   }
 }
 
-main();
+mongoose
+  .connect(MONGODB_URI)
+  .then(async () => {
+    const followings = await getFollowings();
+    console.log(followings);
+    main(followings);
+    mongoose.disconnect();
+  })
+  .catch((err) => {
+    console.log(err.message);
+  });
