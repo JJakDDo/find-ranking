@@ -76,7 +76,6 @@ async function saveRank(keyword, store, title, rank, rankInPage) {
 
 async function main(followings) {
   let results = [];
-  let nextPage = 2;
   let driver = await new Builder()
     .forBrowser("chrome")
     // size가 모바일 사이즈이면 안됨
@@ -100,9 +99,11 @@ async function main(followings) {
       let idInput = await driver.findElement(
         By.className("_searchInput_search_text_3CUDs")
       );
-      idInput.sendKeys(KEYWORD, Key.RETURN);
+      await idInput.sendKeys(Key.chord(Key.CONTROL, "a", Key.DELETE));
+      await idInput.sendKeys(KEYWORD, Key.RETURN);
 
       let rank = 1;
+      let nextPage = 2;
       while (true) {
         if (nextPage >= 26) {
           console.log("KEYWORD: ", KEYWORD);
@@ -166,7 +167,6 @@ async function main(followings) {
           const storeElemExist = await product.findElements(
             By.className("basicList_mall__BC5Xu")
           );
-
           if (storeElemExist.length) {
             let store = await storeElemExist[0].getText();
             if (store === STORE) {
@@ -183,7 +183,7 @@ async function main(followings) {
 
               console.log("KEYWORD: ", KEYWORD);
               console.log("STORE: ", STORE);
-              console.log(`위치: ${nextPage - 1}페이지 ${rankInPage}`);
+              console.log(`위치: ${nextPage - 1} 페이지 ${rankInPage}`);
               console.log(`순위: ${rank}`);
               console.log(name);
               await saveRank(
@@ -214,10 +214,10 @@ async function main(followings) {
                   // console.log(img);
                   // const imgUrl = await img[0].getAttribute("src");
 
-                  console.log("KEYWORD: ", KEYWORDS);
+                  console.log("KEYWORD: ", KEYWORD);
                   console.log("STORE: ", STORE);
                   console.log(
-                    `위치: ${nextPage - 1}페이지 ${rankInPage} (묶음)`
+                    `위치: ${nextPage - 1} 페이지 ${rankInPage} (묶음)`
                   );
                   console.log(`순위: ${rank}`);
                   await saveRank(
