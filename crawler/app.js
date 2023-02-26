@@ -1,6 +1,7 @@
 require("dotenv").config();
 
 const Following = require("./models/following");
+const Rank = require("./models/rank");
 
 const mongoose = require("mongoose");
 const { Builder, By, Key, until } = require("selenium-webdriver");
@@ -23,6 +24,54 @@ async function getFollowings() {
     keyword: following.keyword,
     store: following.store,
   }));
+}
+
+async function saveRank(keyword, store, title, rank, rankInPage) {
+  const existingData = await Rank.findOne({ keyword, store });
+
+  if (existingData) {
+    // return res.status(201).json({ msg: "SUCCESS", following: isExist });
+    const { rank: prevRank, history } = existingData;
+    const differenceInRank = prevRank.rank - rank;
+    let newUpOrDown = "";
+    if (differenceInRank < 0) {
+      newUpOrDown = "-";
+    } else if (differenceInRank > 0) {
+      newUpOrDown = "+";
+    } else {
+      newUpOrDown = "";
+    }
+
+    history.push({
+      ...prevRank,
+      timestamp: new Date().getTime(),
+    });
+
+    await Rank.findOneAndUpdate(
+      { keyword, store },
+      {
+        rank: {
+          rank,
+          position: rankInPage,
+          upOrDown: newUpOrDown,
+          changeInRank: Math.abs(differenceInRank),
+        },
+        history,
+      }
+    );
+    return;
+  }
+  await Rank.create({
+    keyword,
+    store,
+    title,
+    rank: {
+      rank,
+      position: rankInPage,
+      upOrDown: "",
+      changeInRank: 0,
+    },
+  });
 }
 
 async function main(followings) {
@@ -60,6 +109,7 @@ async function main(followings) {
           console.log("STORE: ", STORE);
           console.log(`위치: Not Found`);
           console.log(`순위: Unrank`);
+          await saveRank(KEYWORD, STORE, "", "Unrank", `Not Found`);
           break;
         }
         await driver.wait(
@@ -136,6 +186,13 @@ async function main(followings) {
               console.log(`위치: ${nextPage - 1}페이지 ${rankInPage}`);
               console.log(`순위: ${rank}`);
               console.log(name);
+              await saveRank(
+                KEYWORD,
+                STORE,
+                name,
+                rank,
+                `${nextPage - 1} 페이지 ${rankInPage}`
+              );
               break;
             }
           } else {
@@ -163,7 +220,13 @@ async function main(followings) {
                     `위치: ${nextPage - 1}페이지 ${rankInPage} (묶음)`
                   );
                   console.log(`순위: ${rank}`);
-                  console.log(name);
+                  await saveRank(
+                    KEYWORD,
+                    STORE,
+                    name,
+                    rank,
+                    `${nextPage - 1} 페이지 ${rankInPage} (묶음)`
+                  );
                   break;
                 }
               }
@@ -198,16 +261,17 @@ async function main(followings) {
     }
   } finally {
     driver.quit();
+    mongoose.disconnect();
   }
 }
 
 mongoose
   .connect(MONGODB_URI)
   .then(async () => {
+    console.log("DB Connected...");
     const followings = await getFollowings();
     console.log(followings);
     main(followings);
-    mongoose.disconnect();
   })
   .catch((err) => {
     console.log(err.message);
