@@ -1,13 +1,17 @@
+import { QueryClient, QueryClientProvider } from "react-query";
+
 import { useState } from "react";
-import InputForm from "./components/InputForm";
+import Rank from "./Pages/Rank";
+
+const queryClient = new QueryClient();
 
 function App() {
   const [count, setCount] = useState(0);
 
   return (
-    <div className="App">
-      <InputForm />
-    </div>
+    <QueryClientProvider client={queryClient}>
+      <Rank />
+    </QueryClientProvider>
   );
 }
 
