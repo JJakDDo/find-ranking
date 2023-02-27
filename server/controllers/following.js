@@ -1,4 +1,5 @@
 const Following = require("../models/following");
+const { crawl } = require("../utils/crawl");
 
 const addFollowing = async (req, res) => {
   try {
@@ -20,10 +21,19 @@ const addFollowing = async (req, res) => {
       keyword,
       store,
     });
+    const rank = await crawl(keyword, store);
     console.log(
       `[${new Date().toISOString()}]: Keyword: ${keyword}, Store: ${store} is added!`
     );
-    return res.status(201).json({ msg: "SUCCESS", following: addedFollowing });
+    return res.status(201).json({
+      msg: "SUCCESS",
+      rank: {
+        keyword: rank.keyword,
+        store: rank.store,
+        title: rank.title,
+        ...rank.rank,
+      },
+    });
   } catch (error) {
     return res.status(500).json({ msg: error.message || "ERROR" });
   }
