@@ -2,7 +2,7 @@ const Rank = require("../models/rank");
 const { Builder, By, Key, until } = require("selenium-webdriver");
 const chrome = require("selenium-webdriver/chrome");
 
-const SCROLL_PAUSE_TIME = 100;
+const SCROLL_PAUSE_TIME = 500;
 
 function sleep(ms) {
   const wakeUpTime = Date.now() + ms;
@@ -94,7 +94,7 @@ async function crawl(keyword, store) {
       }
       await driver.wait(
         until.elementLocated(By.className("list_basis")),
-        10000
+        20000
       );
 
       // await driver.executeScript(

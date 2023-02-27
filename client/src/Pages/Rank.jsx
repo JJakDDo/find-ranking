@@ -39,9 +39,13 @@ function Rank() {
       setTodayRank(Object.entries(tempRank).map(([, value]) => value));
     }
   }, [ranks]);
+
+  useEffect(() => {
+    console.log(todayRank);
+  }, [todayRank]);
   return (
     <>
-      <InputForm />
+      <InputForm setTodayRank={setTodayRank} />
       <TodayRank todayRank={todayRank} />
     </>
   );

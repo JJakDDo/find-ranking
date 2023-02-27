@@ -9,7 +9,7 @@ const chrome = require("selenium-webdriver/chrome");
 
 // const KEYWORDS = "돈마호크";
 // const STORE = "위메프";
-const SCROLL_PAUSE_TIME = 500;
+const SCROLL_PAUSE_TIME = 1000;
 
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017";
 
@@ -115,7 +115,7 @@ async function main(followings) {
         }
         await driver.wait(
           until.elementLocated(By.className("list_basis")),
-          10000
+          30000
         );
 
         // await driver.executeScript(
